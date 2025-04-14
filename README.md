@@ -23,7 +23,7 @@ You must have the latest version of [Zeal](https://github.com/iamclint/Zeal) ins
 
 - (optional) You can copy / paste the winner message to a notepad instead of trying to keep track of DKP in real time. At the end of a raid you can then refer to that notepad to adjust everyone's DKP.
 
-- Bids for multiple items must be done by repeating the same START BID message, 1 per copy of the item, currently.
+- Bids for multiple items must be done by repeating the same START BIDS message, 1 per copy of the item, currently.
 
 - The app does not currently support bid priority for things like epics or quests. Expectations for items like this will need to be set with the guild in voice comms or in guild chat separately.
 
@@ -35,7 +35,7 @@ You must have the latest version of [Zeal](https://github.com/iamclint/Zeal) ins
 
 - This application only tracks bidding activity in guild chat.
 
-- Starting a bid happens when a loot officer puts a message in guild chat in the following format: `START BID <ITEM_LINK>` Where <ITEM_LINK> is a link to the item you are bidding.
+- Starting a bid happens when a loot officer puts a message in guild chat in the following format: `START BIDS <ITEM_LINK>` Where <ITEM_LINK> is a link to the item you are bidding.
 
 - The application will not work well with links from PQDI. You must use links from in game items to start, close, or place bids.
 
