@@ -43,7 +43,7 @@ const createWindow = () => {
   }
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.setAlwaysOnTop(true, "screen-saver");
 
@@ -95,6 +95,5 @@ ipcMain.on("app/minimize", () => {
 
 ipcMain.on("app/get-settings", (event) => {
   const config = configStore.load();
-  console.log(config);
   event.reply("settings-loaded", config);
 });

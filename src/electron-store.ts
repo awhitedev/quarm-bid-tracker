@@ -31,9 +31,12 @@ const defaultConfig: Config = {
       "Lianthia",
       "Lendias",
       "Satraka",
-      "Nibs"
+      "Nibs",
+      "Delicate",
+      "Tarhn",
+      "Wonsela"
     ],
-    defaultTimerSeconds: 90,
+    defaultTimerSeconds: 80,
     testHarness: false
   }
 };
