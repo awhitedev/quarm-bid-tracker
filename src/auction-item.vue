@@ -30,36 +30,6 @@
       WINNER ANNOUNCED {{ auction.finalCountdown }}
     </div>
   </div>
-  <!--
-  <div class="auction-item">
-    <div class="auction-item-frame" style="width: 10%">&nbsp;</div>
-    <div class="auction-text">Ton Po's Mystical Pouch - Wardin 320</div>
-    <div class="auction-timer">12s <v-icon icon="mdi-stop" class="stop" /></div>
-  </div>
-  <div class="auction-item" style="background-color: #5879d4">
-    <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
-    <div class="auction-text">WINNER - Mithril Vambraces - Gnoheals 1</div>
-    <div class="auction-timer"><v-icon icon="mdi-trophy" class="trophy" /></div>
-  </div>
-  <div class="auction-item">
-    <div class="no-winner">
-      <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
-      <div class="auction-text">
-        NO BIDS - Ton Po's Bo Stick of Understanding
-      </div>
-      <div class="auction-timer">0s</div>
-    </div>
-  </div>
-  <div class="auction-item">
-    <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
-    <div class="auction-text">Mithril Vambraces - Kirra 320</div>
-    <div class="auction-timer">0s <v-icon icon="mdi-stop" class="stop" /></div>
-  </div>
-  <div class="auction-item">
-    <div class="auction-item-frame" style="width: 50%">&nbsp;</div>
-    <div class="auction-text">Mithril Vambraces - Kirra 320</div>
-    <div class="auction-timer">60s <v-icon icon="mdi-stop" class="stop" /></div>
-  </div>-->
 </template>
 
 <script setup lang="ts">
@@ -155,7 +125,6 @@ const updateAuction = (newVal) => {
 };
 
 onMounted(() => {
-  console.log("mounted auction-item");
   intervalId = setInterval(() => {
     props.auction.timeLeftSeconds = props.auction.timeLeftSeconds - 1;
     if (props.auction.timeLeftSeconds <= 0) {

@@ -134,7 +134,6 @@ const getReport = async () => {
 };
 
 const showStatusMessage = (message: string) => {
-  console.log(message);
   statusMessage.value = message;
   isStatusVisible.value = true;
 };
@@ -231,7 +230,6 @@ const processPipe = (pipe: any) => {
 
         if (startOrEndMatch[3].toLowerCase() === "start bids") {
           // Add item to tracker
-          console.log("detected bidding");
           if (foundAuction && foundAuction.state === AuctionState.Active) {
             foundAuction.quantity++;
           } else {
@@ -271,8 +269,6 @@ const processPipe = (pipe: any) => {
             }
           }
         } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
-          console.log("winning bid announced");
-          console.log(foundAuction);
           if (foundAuction) {
             foundAuction.state = AuctionState.WinnerAnnounced;
 
@@ -291,20 +287,7 @@ const processPipe = (pipe: any) => {
             }, 1000);
           }
         }
-
-        console.log(auctions.value);
       }
-      // let character
-      // if (match[1]
-
-      // this.auctions.push({
-      //   itemId
-      // })
-      // start bid adds item to the auction list. 2 min timer starts. verify the person issuing the auction is an approved loot officer: (pipe.character == You, must check by character name)
-      // close bid button copies a message to clipboard.
-      // closed bid message in chat stops new bids from coming in. Bids are not officially closed until this happens.
-      // A new button appears to copy winner message. You must copy the item and paste it in the chat to indicate the winner.
-      // declaring a winner removes the item from the list after 15 seconds. if no winner then it is removed 15 seconds after closing.
     } else {
       const bidRegex =
         /^(?<player>.*) (say to your guild|tells the guild), 'BID (?<item>.*) (?<bid>.*)'/i;
@@ -314,7 +297,6 @@ const processPipe = (pipe: any) => {
       // match[3] - item
       // match[4] - bid amount
       const bidMatch = pipe.data.text.match(bidRegex);
-      console.log(bidMatch);
       if (bidMatch && bidMatch.length === 5) {
         const bidAmount = parseInt(bidMatch[4]);
         if (bidAmount > 5000) {
@@ -389,31 +371,12 @@ const processPipe = (pipe: any) => {
                 return a.bid - b.bid;
               });
             }
-
-            /*if (bidAmount > foundAuction.winningBid) {
-              foundAuction.winningBid;
-              auctions.value.splice(idx, 1, foundAuction);
-            }*/
           }
         });
       }
-
-      /*const winnerRegex =
-        /^(?<player>.*) (say to your guild|tells the guild), 'WINNING BIDS (?<item>.*) ::: (?<winning_player>.*) (?<bid>.*)'/i;*/
-
-      // match[0] - entire string
-      // match[1] - name (You or player name)
-      // match[2] - not used
-      // match[3] - item
-      // match[4] - winning player (not used, needs work to accomodate multiple bid winners)
-      // match[5] - bid amount (not used, needs work to accomodate multiple bid winners)
-
-      // const winnerMatch = pipe.data.value.match(winnerRegex);
     }
   }
 };
-
-console.log('👋 This message is being logged by "App.vue", included via Vite');
 
 zealWindow.zeal.onZealPipes((pipes) => {
   pipes.forEach((pipe) => {
