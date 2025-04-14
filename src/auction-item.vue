@@ -1,0 +1,212 @@
+<template>
+  <div class="auction-item">
+    <div
+      class="auction-item-frame"
+      :style="{ width: percentRemaining + '%' }"
+      v-if="auction.state === 0"
+    >
+      &nbsp;
+    </div>
+    <div class="auction-text">{{ bidLabel }}</div>
+    <div class="auction-timer" v-if="auction.state === 0">
+      {{ auction.timeLeftSeconds }}s
+      <v-icon
+        icon="mdi-stop"
+        class="stop"
+        @click="stopBids"
+        v-if="isLootOfficer"
+      />
+    </div>
+    <div class="auction-timer" v-if="auction.state === 1">
+      BIDS CLOSED {{ auction.finalCountdown }}
+      <v-icon
+        icon="mdi-trophy"
+        class="trophy"
+        @click="declareWinner"
+        v-if="auction.winningBids.length > 0 && isLootOfficer"
+      />
+    </div>
+    <div class="auction-timer" v-if="auction.state === 2">
+      WINNER ANNOUNCED {{ auction.finalCountdown }}
+    </div>
+  </div>
+  <!--
+  <div class="auction-item">
+    <div class="auction-item-frame" style="width: 10%">&nbsp;</div>
+    <div class="auction-text">Ton Po's Mystical Pouch - Wardin 320</div>
+    <div class="auction-timer">12s <v-icon icon="mdi-stop" class="stop" /></div>
+  </div>
+  <div class="auction-item" style="background-color: #5879d4">
+    <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
+    <div class="auction-text">WINNER - Mithril Vambraces - Gnoheals 1</div>
+    <div class="auction-timer"><v-icon icon="mdi-trophy" class="trophy" /></div>
+  </div>
+  <div class="auction-item">
+    <div class="no-winner">
+      <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
+      <div class="auction-text">
+        NO BIDS - Ton Po's Bo Stick of Understanding
+      </div>
+      <div class="auction-timer">0s</div>
+    </div>
+  </div>
+  <div class="auction-item">
+    <div class="auction-item-frame" style="width: 0%">&nbsp;</div>
+    <div class="auction-text">Mithril Vambraces - Kirra 320</div>
+    <div class="auction-timer">0s <v-icon icon="mdi-stop" class="stop" /></div>
+  </div>
+  <div class="auction-item">
+    <div class="auction-item-frame" style="width: 50%">&nbsp;</div>
+    <div class="auction-text">Mithril Vambraces - Kirra 320</div>
+    <div class="auction-timer">60s <v-icon icon="mdi-stop" class="stop" /></div>
+  </div>-->
+</template>
+
+<script setup lang="ts">
+import { onMounted, onBeforeUnmount, computed } from "vue";
+import { useStore } from "vuex";
+import useClipboard from "vue-clipboard3";
+
+const store = useStore();
+const { toClipboard } = useClipboard();
+
+let intervalId = null;
+
+const percentRemaining = computed(() => {
+  if (!props.auction) {
+    return 0;
+  }
+  return Math.round(
+    (props.auction.timeLeftSeconds /
+      store.state.appSettings.bidTracker.defaultTimerSeconds) *
+      100
+  );
+});
+
+const bidLabel = computed(() => {
+  if (!props.auction) {
+    return "Error";
+  }
+
+  let bidString = `(${props.auction.quantity}x) ${props.auction.itemName} - `;
+  if (props.auction.winningBids.length == 0) {
+    bidString += "No bids";
+  } else if (props.auction.winningBids.length > 2) {
+    bidString += "Many Bids";
+  } else {
+    for (let i = 0; i < props.auction.winningBids.length; i++) {
+      const bid = props.auction.winningBids[i];
+      bidString += `${bid.player} ${bid.bid}`;
+      if (i + 1 < props.auction.winningBids.length) {
+        bidString += ", ";
+      }
+    }
+  }
+  return bidString;
+});
+
+const stopBids = async () => {
+  await toClipboard(`BIDS CLOSED ${props.auction.itemDisplay}`);
+  emit(
+    "update:statusMessage",
+    "Bids closed message copied to clipboard. Paste this message in guild chat!"
+  );
+  // props.auction.state = 1;
+};
+
+const declareWinner = async () => {
+  let winningBidText = "";
+  for (let i = 0; i < props.auction.winningBids.length; i++) {
+    const winningBid = props.auction.winningBids[i];
+    if (!winningBid) {
+      continue;
+    }
+    winningBidText += `${winningBid.player} ${winningBid.bid}`;
+
+    if (i + 1 < props.auction.winningBids.length) {
+      winningBidText += ", ";
+    }
+  }
+
+  await toClipboard(
+    `WINNING BIDS ${props.auction.itemDisplay} ::: ${winningBidText}`
+  );
+
+  emit(
+    "update:statusMessage",
+    "Bid winners message copied to clipboard. Paste this message in guild chat!"
+  );
+};
+
+const props = defineProps({
+  auction: {
+    type: Object,
+    required: true
+  },
+  isLootOfficer: {
+    type: Boolean,
+    required: true
+  }
+});
+
+const emit = defineEmits(["update:auctionValue", "update:statusMessage"]);
+const updateAuction = (newVal) => {
+  emit("update:auctionValue", { ...props.auction, ...newVal });
+};
+
+onMounted(() => {
+  console.log("mounted auction-item");
+  intervalId = setInterval(() => {
+    props.auction.timeLeftSeconds = props.auction.timeLeftSeconds - 1;
+    if (props.auction.timeLeftSeconds <= 0) {
+      clearInterval(intervalId);
+    }
+  }, 1000);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(intervalId);
+});
+</script>
+
+<style>
+div.auction-item {
+  position: relative;
+  background-color: #b9b9b9;
+  color: #fff;
+  font-weight: bold;
+  width: 100%;
+  height: 25px;
+  margin: 5px 0;
+  line-height: 25px;
+  font-size: 0.75rem;
+}
+div.auction-item-frame {
+  background-color: #60bc60;
+}
+div.auction-text {
+  position: absolute;
+  top: 0;
+  padding-left: 5px;
+}
+div.auction-timer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding-right: 5px;
+}
+i.stop {
+  color: #c24646;
+  -webkit-app-region: no-drag;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+i.trophy {
+  color: rgb(255, 230, 0);
+  font-size: 1.4rem;
+  -webkit-app-region: no-drag;
+}
+div.no-winner {
+  background-color: #c24646;
+}
+</style>

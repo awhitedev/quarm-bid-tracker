@@ -1,0 +1,484 @@
+<template>
+  <nav>
+    <div class="title">Quarm Bid Tracker</div>
+    <div class="right-nav">
+      <span class="nav-link" @click="minimize">&minus;</span>
+      <span class="nav-link" @click="close">&#10006;</span>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="actions" v-if="isLootOfficer">
+      <v-btn
+        prependIcon="mdi-chart-bar"
+        class="get-report"
+        size="small"
+        @click="getReport"
+        >Report</v-btn
+      >
+    </div>
+    <auctionItem
+      v-for="item in auctions"
+      :key="index"
+      :auction="item"
+      :isLootOfficer="isLootOfficer"
+      @update:auctionValue="(updatedModel) => (auctions[index] = updatedModel)"
+      @update:statusMessage="showStatusMessage"
+    />
+  </div>
+  <div class="test-harness nodrag" v-if="isTestHarness">
+    <v-text-field label="player" v-model="testPlayer"></v-text-field>
+    <v-text-field label="message" v-model="testMessage"></v-text-field>
+    <v-btn size="small" @click="submitTest">Submit</v-btn>&nbsp;
+  </div>
+  <v-snackbar v-model="isStatusVisible" :timeout="3000">
+    {{ statusMessage }}
+    <template v-slot:actions>
+      <v-btn
+        class="snack-action"
+        variant="text"
+        @click="isStatusVisible = false"
+      >
+        Close
+      </v-btn>
+    </template>
+  </v-snackbar>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+import { useStore } from "vuex";
+import { DataPipeType, PipeType, zealWindow } from "./zeal-window";
+import auctionItem from "./auction-item.vue";
+import useClipboard from "vue-clipboard3";
+import { Auction, AuctionState } from "./auction";
+
+const store = useStore();
+
+onMounted(() => {
+  zealWindow.zeal.getSettings();
+});
+
+zealWindow.zeal.onSettingsLoaded((settings) => {
+  store.commit("updateSettings", settings);
+  isTestHarness.value = store.state.appSettings.bidTracker.testHarness;
+});
+
+const { toClipboard } = useClipboard();
+const statusMessage = ref("");
+const isStatusVisible = ref(false);
+const isTestHarness = ref(false);
+
+const isLootOfficer = ref(false);
+
+const auctions = ref([]);
+const currentCharacter = ref("");
+
+const dc2 = String.fromCharCode(18);
+
+// test parameters
+const testPlayer = ref("");
+const testMessage = ref("");
+
+const minimize = async () => {
+  zealWindow.zeal.minimize();
+};
+
+const close = async () => {
+  zealWindow.zeal.close();
+};
+
+const updateAuction = (updatedModel) => {
+  auctions.value[index] = updatedModel;
+};
+
+const getReport = async () => {
+  let activeAuctionsExist = auctions.value.some(
+    (auction) => auction.state === AuctionState.Active
+  );
+
+  if (!activeAuctionsExist) {
+    await toClipboard(`Current Bids ::: None`);
+  } else {
+    let bidReport = "";
+    for (let i = 0; i < auctions.value.length; i++) {
+      let auction = auctions.value[i];
+
+      if (auction.state !== AuctionState.Active) {
+        continue;
+      }
+
+      if (!auction.winningBids || auction.winningBids.length === 0) {
+        bidReport += `${i + 1}. ${auction.itemDisplay} NO BIDS ${
+          auction.timeLeftSeconds
+        }s`;
+      } else {
+        bidReport += `${i + 1}. ${auction.itemDisplay}`;
+        for (const winningBid of auction.winningBids) {
+          if (winningBid.player && winningBid.bid) {
+            bidReport += ` ${winningBid.player} ${winningBid.bid}`;
+          }
+        }
+        bidReport += ` - ${auction.timeLeftSeconds}s`;
+      }
+
+      if (i + 1 < auctions.value.length) {
+        bidReport += ", ";
+      }
+    }
+
+    await toClipboard(`Current Bids ::: ${bidReport}`);
+  }
+
+  statusMessage.value = "Current bids copied to clipboard!";
+  isStatusVisible.value = true;
+};
+
+const showStatusMessage = (message: string) => {
+  console.log(message);
+  statusMessage.value = message;
+  isStatusVisible.value = true;
+};
+
+function findAllIndexes<T>(
+  array: Array<T>,
+  predicate: (value: T, index: number, obj: T[]) => boolean
+): number[] {
+  const indexes = [];
+  let l = array.length;
+  while (l--) {
+    if (predicate(array[l], l, array)) {
+      indexes.push(l);
+    }
+  }
+  return indexes;
+}
+
+const submitTest = async () => {
+  const pipePlayer = {
+    character: testPlayer.value,
+    type: PipeType.Player
+  };
+
+  processPipe(pipePlayer);
+  const pipe = {
+    character: testPlayer.value,
+    data: {
+      type: DataPipeType.OtherGuildChat,
+      text: testMessage.value
+    },
+    type: PipeType.Log,
+    data_len: 1
+  };
+
+  processPipe(pipe);
+};
+
+const processPipe = (pipe: any) => {
+  // Process.. use regex to get string.. exclude first 7 characters (which is the ID) for displaying in app or on Open DKP.
+  // Use the first 7 characters with the item name when detecting bids as some items in the game are named exactly the same.
+
+  // Put last 7 characters back in text with dc2 character string at the beginning and end when copy / pasting from app back to the game for guild communication
+
+  if (!pipe) {
+    return;
+  }
+
+  if (pipe.type === PipeType.Player && currentCharacter.value === "") {
+    // pipe.character gets the name of the character in game
+    currentCharacter.value = pipe.character;
+
+    const lootOfficers = Array.from(
+      store.state.appSettings.bidTracker.lootOfficers
+    );
+
+    isLootOfficer.value = lootOfficers.indexOf(currentCharacter.value) > -1;
+  } else if (
+    pipe.type === PipeType.Log &&
+    (pipe.data.type === DataPipeType.OtherGuildChat ||
+      pipe.data.type === DataPipeType.YourGuildChat)
+  ) {
+    const bidStartEndregex =
+      /^(?<player>.*) (say to your guild|tells the guild), '(START BIDS|BIDS CLOSED|WINNING BIDS) (?<item>.*)'/i;
+    // match[0] - entire string
+    // match[1] - name (You or player name)
+    // match[2] - not used
+    // match[3] - action
+    // match[4] - item
+
+    const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
+
+    if (startOrEndMatch && startOrEndMatch.length === 5) {
+      let canManageBids = false;
+      const lootOfficers = Array.from(
+        store.state.appSettings.bidTracker.lootOfficers
+      );
+      if (startOrEndMatch[1] === "You") {
+        canManageBids = lootOfficers.indexOf(currentCharacter.value) > -1;
+      } else {
+        canManageBids = lootOfficers.indexOf(startOrEndMatch[1]) > -1;
+      }
+
+      if (canManageBids) {
+        // remove device control characters
+        let itemString = startOrEndMatch[4].replace(/dc2/g, "");
+
+        const itemId = itemString.substring(0, 7);
+        const itemName = itemString.substring(7).trim();
+
+        const foundAuction = auctions.value.find(
+          (item: Auction) => item.itemId === itemId
+        );
+
+        if (startOrEndMatch[3].toLowerCase() === "start bids") {
+          // Add item to tracker
+          console.log("detected bidding");
+          if (foundAuction && foundAuction.state === AuctionState.Active) {
+            foundAuction.quantity++;
+          } else {
+            let newAuction = {
+              winningBids: [],
+              quantity: 1,
+              itemId,
+              itemName,
+              itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
+              state: AuctionState.Active,
+              timeLeftSeconds:
+                store.state.appSettings.bidTracker.defaultTimerSeconds
+            };
+            auctions.value.push(newAuction);
+          }
+        } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
+          if (foundAuction) {
+            foundAuction.state = AuctionState.Closed;
+
+            if (
+              !foundAuction.winningBids ||
+              foundAuction.winningBids.length === 0
+            ) {
+              foundAuction.finalCountdown = 10;
+              let closeTimerId = setInterval(() => {
+                foundAuction.finalCountdown--;
+
+                if (foundAuction.finalCountdown <= 0) {
+                  const foundAuctionIndex = auctions.value.findIndex(
+                    (item: Auction) => item.itemId === itemId
+                  );
+
+                  auctions.value.splice(foundAuctionIndex, 1);
+                  clearInterval(closeTimerId);
+                }
+              }, 1000);
+            }
+          }
+        } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
+          console.log("winning bid announced");
+          console.log(foundAuction);
+          if (foundAuction) {
+            foundAuction.state = AuctionState.WinnerAnnounced;
+
+            foundAuction.finalCountdown = 10;
+            let closeTimerId = setInterval(() => {
+              foundAuction.finalCountdown--;
+
+              if (foundAuction.finalCountdown <= 0) {
+                const foundAuctionIndex = auctions.value.findIndex(
+                  (item: Auction) => item.itemId === itemId
+                );
+
+                auctions.value.splice(foundAuctionIndex, 1);
+                clearInterval(closeTimerId);
+              }
+            }, 1000);
+          }
+        }
+
+        console.log(auctions.value);
+      }
+      // let character
+      // if (match[1]
+
+      // this.auctions.push({
+      //   itemId
+      // })
+      // start bid adds item to the auction list. 2 min timer starts. verify the person issuing the auction is an approved loot officer: (pipe.character == You, must check by character name)
+      // close bid button copies a message to clipboard.
+      // closed bid message in chat stops new bids from coming in. Bids are not officially closed until this happens.
+      // A new button appears to copy winner message. You must copy the item and paste it in the chat to indicate the winner.
+      // declaring a winner removes the item from the list after 15 seconds. if no winner then it is removed 15 seconds after closing.
+    } else {
+      const bidRegex =
+        /^(?<player>.*) (say to your guild|tells the guild), 'BID (?<item>.*) (?<bid>.*)'/i;
+      // match[0] - entire string
+      // match[1] - name (You or player name)
+      // match[2] - not used
+      // match[3] - item
+      // match[4] - bid amount
+      const bidMatch = pipe.data.text.match(bidRegex);
+      console.log(bidMatch);
+      if (bidMatch && bidMatch.length === 5) {
+        const bidAmount = parseInt(bidMatch[4]);
+        if (bidAmount > 5000) {
+          return;
+        }
+
+        const itemId = bidMatch[3].substring(0, 7);
+        const foundAuctionIdx = findAllIndexes(
+          auctions.value,
+          (item: Auction) => item.itemId === itemId
+        );
+
+        foundAuctionIdx.forEach((idx) => {
+          const foundAuction = auctions.value[idx];
+          if (
+            foundAuction &&
+            foundAuction.state === AuctionState.Active &&
+            !isNaN(bidAmount) &&
+            bidAmount > 0
+          ) {
+            let bidderName = bidMatch[1];
+            if (bidderName === "You") {
+              bidderName = currentCharacter.value;
+            }
+
+            // prevent double dipping.. a person can only win 1 item even if there are multiple available
+            const existingPlayerBidIdx = foundAuction.winningBids.findIndex(
+              (bid) => bid.player === bidderName
+            );
+            if (existingPlayerBidIdx > -1) {
+              // set the bid amount higher if they decide they want to.
+              const existingAuction =
+                foundAuction.winningBids[existingPlayerBidIdx];
+              if (bidAmount > existingAuction.bid) {
+                existingAuction.bid = bidAmount;
+              }
+              return true;
+            }
+
+            // sort winning bids.. only overwrite lowest winning bid possible.
+            // add to winning bids if quantity being bid out hasn't been reached.
+            if (foundAuction.quantity > foundAuction.winningBids.length) {
+              foundAuction.winningBids.push({
+                player: bidderName,
+                bid: bidAmount
+              });
+              foundAuction.winningBids.sort((a, b) => {
+                return a.bid - b.bid;
+              });
+
+              if (foundAuction.timeLeftSeconds < 10) {
+                foundAuction.timeLeftSeconds = 20;
+              }
+            } else {
+              // find lowest bid and see if current bid is higher than that. If it is, replace it with current bid.
+              const sortedWinners = foundAuction.winningBids.sort((a, b) => {
+                return a.bid - b.bid;
+              });
+              sortedWinners.every((winBid) => {
+                if (winBid && bidAmount > winBid.bid) {
+                  winBid.bid = bidAmount;
+                  winBid.player = bidderName;
+
+                  if (foundAuction.timeLeftSeconds < 10) {
+                    foundAuction.timeLeftSeconds = 20;
+                  }
+
+                  return false;
+                }
+              });
+              foundAuction.winningBids.sort((a, b) => {
+                return a.bid - b.bid;
+              });
+            }
+
+            /*if (bidAmount > foundAuction.winningBid) {
+              foundAuction.winningBid;
+              auctions.value.splice(idx, 1, foundAuction);
+            }*/
+          }
+        });
+      }
+
+      /*const winnerRegex =
+        /^(?<player>.*) (say to your guild|tells the guild), 'WINNING BIDS (?<item>.*) ::: (?<winning_player>.*) (?<bid>.*)'/i;*/
+
+      // match[0] - entire string
+      // match[1] - name (You or player name)
+      // match[2] - not used
+      // match[3] - item
+      // match[4] - winning player (not used, needs work to accomodate multiple bid winners)
+      // match[5] - bid amount (not used, needs work to accomodate multiple bid winners)
+
+      // const winnerMatch = pipe.data.value.match(winnerRegex);
+    }
+  }
+};
+
+console.log('👋 This message is being logged by "App.vue", included via Vite');
+
+zealWindow.zeal.onZealPipes((pipes) => {
+  pipes.forEach((pipe) => {
+    processPipe(pipe);
+  });
+});
+</script>
+
+<style>
+html {
+  -webkit-app-region: drag;
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+body {
+  padding: 0;
+  margin: 0;
+  background: rgba(70, 70, 70, 0.4);
+  height: 100vh;
+}
+nav {
+  width: 100vw;
+  height: 23px;
+  display: flex;
+  color: #fff;
+  justify-content: space-between;
+  background-color: #5879d4;
+}
+.nav-link {
+  -webkit-app-region: no-drag;
+  padding: 0 7px;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.nav-link:hover {
+  background-color: #fff;
+  color: #5879d4;
+}
+div.title {
+  font-size: 0.9rem;
+  padding: 0 7px;
+}
+div.main {
+  padding: 5px;
+}
+div.actions {
+  padding: 7px 0;
+}
+button.get-report,
+.snack-action {
+  -webkit-app-region: no-drag;
+  color: #5879d4;
+}
+div.statusMessage {
+  color: #60bc60;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 15px;
+}
+/* test harness */
+div.test-harness {
+  background: #fff;
+}
+.nodrag {
+  -webkit-app-region: no-drag;
+}
+</style>

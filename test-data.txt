@@ -1,0 +1,52 @@
+You say to your guild, 'START BIDS 0031224Mrylokar's Dagger of Vengeance'
+You say to your guild, 'BID 0031224Mrylokar's Dagger of Vengeance 25'
+
+Current Bids ::: 1. 000111 BLAH NO BIDS 90s
+Current Bids ::: 1. 000111 BLAH NO BIDS 90s
+Current Bids ::: 1. 000111 BLAH NO BIDS 90s
+
+type: 3 is player entry.. this one spams and we only need to know who the player is initially to determine application capabilities.
+
+{
+    "character": "Captain",
+    "data": {
+        "autoattack": false,
+        "heading": 220.10011291503906,
+        "location": {
+            "x": -1637,
+            "y": -83,
+            "z": 3.12600040435791
+        },
+        "zone": 22
+    },
+    "data_len": 115,
+    "type": 3
+}
+
+
+type: 0 is log entry
+
+data.type: 310 is when YOU say something in guild,
+{
+    "character": "Captain",
+    "data": {
+        "text": "You say to your guild, 'test'",
+        "type": 310
+    },
+    "data_len": 51,
+    "type": 0
+}
+
+
+data.type: 259 is when someone else says something in guild
+{
+    "character": "Captain",
+    "data": {
+        "text": "Suuen tells the guild, 'working on level 25 :) How about yourself?'",
+        "type": 259
+    },
+    "data_len": 89,
+    "type": 0
+}
+
+
