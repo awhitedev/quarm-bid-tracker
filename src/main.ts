@@ -18,7 +18,7 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: config.bidTracker.width,
     height: config.bidTracker.height,
-    minWidth: 480,
+    minWidth: 375,
     minHeight: 300,
     x: config.bidTracker.x,
     y: config.bidTracker.y,

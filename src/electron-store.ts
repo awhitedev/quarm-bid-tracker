@@ -18,7 +18,7 @@ export interface Config {
 
 const defaultConfig: Config = {
   bidTracker: {
-    width: 350,
+    width: 480,
     height: 300,
     lootOfficers: [
       "Captain",
