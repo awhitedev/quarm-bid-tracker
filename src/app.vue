@@ -10,10 +10,24 @@
     <div class="actions" v-if="isLootOfficer">
       <v-btn
         prependIcon="mdi-chart-bar"
-        class="get-report"
+        class="action-button"
         size="small"
         @click="getReport"
         >Report</v-btn
+      >
+      <v-btn
+        prependIcon="mdi-stop"
+        class="action-button"
+        size="small"
+        @click="getCloseAllMessage"
+        >Close All</v-btn
+      >
+      <v-btn
+        prependIcon="mdi-trophy"
+        class="action-button"
+        size="small"
+        @click="getDeclareAllWinnersMessage"
+        >Declare All Winners</v-btn
       >
     </div>
     <auctionItem
@@ -73,6 +87,8 @@ const isLootOfficer = ref(false);
 const auctions = ref([]);
 const currentCharacter = ref("");
 
+const removalTimers = {};
+
 const dc2 = String.fromCharCode(18);
 
 // test parameters
@@ -130,6 +146,85 @@ const getReport = async () => {
   }
 
   statusMessage.value = "Current bids copied to clipboard!";
+  isStatusVisible.value = true;
+};
+
+const getCloseAllMessage = async () => {
+  let activeAuctionsExist = auctions.value.some(
+    (auction) => auction.state === AuctionState.Active
+  );
+
+  if (!activeAuctionsExist) {
+    statusMessage.value = "No bids to close at this time!";
+    isStatusVisible.value = true;
+    return;
+  }
+
+  let bidsClosedMessage = "BIDS CLOSED ";
+  for (let i = 0; i < auctions.value.length; i++) {
+    let auction = auctions.value[i];
+    if (auction.state !== AuctionState.Active) {
+      continue;
+    }
+
+    bidsClosedMessage += `${auction.itemDisplay}`;
+    if (i + 1 < auctions.value.length) {
+      bidsClosedMessage += ", ";
+    }
+  }
+
+  await toClipboard(bidsClosedMessage);
+
+  statusMessage.value =
+    "Close all current bids message copied to clipboard. Paste this in guild chat!";
+  isStatusVisible.value = true;
+};
+
+const getDeclareAllWinnersMessage = async () => {
+  let winningBidsExist = auctions.value.some(
+    (auction) =>
+      auction.state === AuctionState.Closed &&
+      auction.winningBids &&
+      auction.winningBids.length > 0
+  );
+
+  if (!winningBidsExist) {
+    statusMessage.value = "No winning bids at this time!";
+    isStatusVisible.value = true;
+    return;
+  }
+
+  let winningBidText = "WINNING BIDS ";
+  for (let i = 0; i < auctions.value.length; i++) {
+    let auction = auctions.value[i];
+    if (
+      auction.state !== AuctionState.Closed ||
+      auction.winningBids.length === 0
+    ) {
+      continue;
+    }
+    winningBidText += `${auction.itemDisplay} ::: `;
+    for (let i = 0; i < auction.winningBids.length; i++) {
+      const winningBid = auction.winningBids[i];
+      if (!winningBid) {
+        continue;
+      }
+      winningBidText += `${winningBid.player} ${winningBid.bid}`;
+
+      if (i + 1 < auction.winningBids.length) {
+        winningBidText += " | ";
+      }
+    }
+
+    if (i + 1 < auctions.value.length) {
+      winningBidText += ", ";
+    }
+  }
+
+  await toClipboard(winningBidText);
+
+  statusMessage.value =
+    "Declare all winners message copied to clipboard. Paste this in guild chat!";
   isStatusVisible.value = true;
 };
 
@@ -202,7 +297,7 @@ const processPipe = (pipe: any) => {
     // match[1] - name (You or player name)
     // match[2] - not used
     // match[3] - action
-    // match[4] - item
+    // match[4] - item(s). It can be one item or multiple delimited by a comma if LINK ALL is used in game.
 
     const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
 
@@ -218,92 +313,111 @@ const processPipe = (pipe: any) => {
       }
 
       if (canManageBids) {
-        // remove device control characters
-        let itemString = startOrEndMatch[4].replace(/dc2/g, "");
+        const bidItemsString = startOrEndMatch[4];
+        bidItemsString.split(",").forEach((bidItem) => {
+          // remove device control characters
+          let itemString = bidItem.replace(/dc2/g, "").trim();
 
-        const itemId = itemString.substring(0, 7);
-        const itemName = itemString.substring(7).trim();
+          const itemId = itemString.substring(0, 7);
+          const itemName = itemString.substring(7).trim();
 
-        const foundAuction = auctions.value.find(
-          (item: Auction) => item.itemId === itemId
-        );
+          const foundAuction = auctions.value.find(
+            (item: Auction) => item.itemId === itemId
+          );
 
-        if (startOrEndMatch[3].toLowerCase() === "start bids") {
-          // Add item to tracker
-          if (foundAuction && foundAuction.state === AuctionState.Active) {
-            foundAuction.quantity++;
-          } else {
-            let newAuction = {
-              winningBids: [],
-              quantity: 1,
-              itemId,
-              itemName,
-              itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
-              state: AuctionState.Active,
-              timeLeftSeconds:
-                store.state.appSettings.bidTracker.defaultTimerSeconds
-            };
-            auctions.value.push(newAuction);
-          }
-        } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
-          if (foundAuction) {
-            foundAuction.state = AuctionState.Closed;
+          if (startOrEndMatch[3].toLowerCase() === "start bids") {
+            // Add item to tracker
+            if (foundAuction && foundAuction.state === AuctionState.Active) {
+              foundAuction.quantity++;
+            } else {
+              let newAuction = {
+                winningBids: [],
+                quantity: 1,
+                itemId,
+                itemName,
+                itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
+                state: AuctionState.Active,
+                timeLeftSeconds:
+                  store.state.appSettings.bidTracker.defaultTimerSeconds
+              };
+              auctions.value.push(newAuction);
+            }
+          } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
+            if (foundAuction) {
+              foundAuction.state = AuctionState.Closed;
 
-            if (
-              !foundAuction.winningBids ||
-              foundAuction.winningBids.length === 0
-            ) {
-              foundAuction.finalCountdown = 10;
-              let closeTimerId = setInterval(() => {
-                foundAuction.finalCountdown--;
+              if (
+                !foundAuction.winningBids ||
+                foundAuction.winningBids.length === 0
+              ) {
+                const currenTimers = Object.keys(removalTimers);
+                if (!currenTimers.some((keyId) => keyId === itemId)) {
+                  foundAuction.finalCountdown = 10;
+                  let closeTimerId = setInterval(() => {
+                    foundAuction.finalCountdown--;
 
-                if (foundAuction.finalCountdown <= 0) {
-                  const foundAuctionIndex = auctions.value.findIndex(
-                    (item: Auction) => item.itemId === itemId
-                  );
+                    if (foundAuction.finalCountdown <= 0) {
+                      const foundAuctionIndex = auctions.value.findIndex(
+                        (item: Auction) => item.itemId === itemId
+                      );
 
-                  auctions.value.splice(foundAuctionIndex, 1);
-                  clearInterval(closeTimerId);
+                      auctions.value.splice(foundAuctionIndex, 1);
+                      clearInterval(closeTimerId);
+                      delete removalTimers[itemId];
+                    }
+                  }, 1000);
+
+                  removalTimers[itemId] = closeTimerId;
                 }
-              }, 1000);
+              }
+            }
+          } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
+            if (foundAuction) {
+              foundAuction.state = AuctionState.WinnerAnnounced;
+
+              const currenTimers = Object.keys(removalTimers);
+              if (!currenTimers.some((keyId) => keyId === itemId)) {
+                foundAuction.finalCountdown = 10;
+                let closeTimerId = setInterval(() => {
+                  foundAuction.finalCountdown--;
+
+                  if (foundAuction.finalCountdown <= 0) {
+                    const foundAuctionIndex = auctions.value.findIndex(
+                      (item: Auction) => item.itemId === itemId
+                    );
+
+                    auctions.value.splice(foundAuctionIndex, 1);
+                    clearInterval(closeTimerId);
+                    delete removalTimers[itemId];
+                  }
+                }, 1000);
+                removalTimers[itemId] = closeTimerId;
+              }
             }
           }
-        } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
-          if (foundAuction) {
-            foundAuction.state = AuctionState.WinnerAnnounced;
-
-            foundAuction.finalCountdown = 10;
-            let closeTimerId = setInterval(() => {
-              foundAuction.finalCountdown--;
-
-              if (foundAuction.finalCountdown <= 0) {
-                const foundAuctionIndex = auctions.value.findIndex(
-                  (item: Auction) => item.itemId === itemId
-                );
-
-                auctions.value.splice(foundAuctionIndex, 1);
-                clearInterval(closeTimerId);
-              }
-            }, 1000);
-          }
-        }
+        });
       }
     } else {
       const bidRegex =
-        /^(?<player>.*) (say to your guild|tells the guild), 'BID (?<item>.*) (?<bid>.*)'/i;
+        /^(?<player>.*) (say to your guild|tells the guild), '(BID)?(?<item>.*) (?<bid>.*)'/i;
       // match[0] - entire string
       // match[1] - name (You or player name)
       // match[2] - not used
-      // match[3] - item
-      // match[4] - bid amount
+      // match[3] - the word 'bid' if provided, otherwise, the item
+      // match[4] - the item if 'bid' was provided, otherwise, the bid amount
+      // match[5] - the bid amount if 'bid' provided, otherwise, not used / does not exist.
       const bidMatch = pipe.data.text.match(bidRegex);
-      if (bidMatch && bidMatch.length === 5) {
-        const bidAmount = parseInt(bidMatch[4]);
+      console.log(bidMatch);
+      if (bidMatch && bidMatch.length >= 5) {
+        let itemString = bidMatch[4];
+        let bidAmountString = bidMatch[5];
+
+        const bidAmount = parseInt(bidAmountString);
         if (bidAmount > 5000) {
           return;
         }
 
-        const itemId = bidMatch[3].substring(0, 7);
+        const itemId = itemString.trim().substring(0, 7);
         const foundAuctionIdx = findAllIndexes(
           auctions.value,
           (item: Auction) => item.itemId === itemId
@@ -347,7 +461,10 @@ const processPipe = (pipe: any) => {
                 return a.bid - b.bid;
               });
 
-              if (foundAuction.timeLeftSeconds < 10) {
+              if (
+                foundAuction.timeLeftSeconds < 10 &&
+                foundAuction.timeLeftSeconds > 0
+              ) {
                 foundAuction.timeLeftSeconds = 20;
               }
             } else {
@@ -360,7 +477,10 @@ const processPipe = (pipe: any) => {
                   winBid.bid = bidAmount;
                   winBid.player = bidderName;
 
-                  if (foundAuction.timeLeftSeconds < 10) {
+                  if (
+                    foundAuction.timeLeftSeconds < 10 &&
+                    foundAuction.timeLeftSeconds > 0
+                  ) {
                     foundAuction.timeLeftSeconds = 20;
                   }
 
@@ -426,7 +546,10 @@ div.main {
 div.actions {
   padding: 7px 0;
 }
-button.get-report,
+button.action-button {
+  margin-right: 10px;
+}
+button.action-button,
 .snack-action {
   -webkit-app-region: no-drag;
   color: #5879d4;

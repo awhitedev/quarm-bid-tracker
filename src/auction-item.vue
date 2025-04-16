@@ -94,7 +94,7 @@ const declareWinner = async () => {
     winningBidText += `${winningBid.player} ${winningBid.bid}`;
 
     if (i + 1 < props.auction.winningBids.length) {
-      winningBidText += ", ";
+      winningBidText += " | ";
     }
   }
 
