@@ -12,6 +12,10 @@ type ZealWindow = Window & {
     onZealPipes: (cb: (pipes: ZealPipe[]) => void) => void;
     close: () => void;
     minimize: () => void;
+    copyText: (text: string) => void;
+    onGetReportShortcut: (cb: () => void) => void;
+    onCloseAllShortcut: (cb: () => void) => void;
+    onDeclareAllWinnersShortcut: (cb: () => void) => void;
     getSettings: () => void;
     onSettingsLoaded: (cb: (settings: Config) => void) => void;
     onLockChanged: (cb: (isLocked: boolean) => void) => void;

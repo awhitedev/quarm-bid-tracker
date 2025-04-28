@@ -1,7 +1,7 @@
 {
   "name": "quarm-bid-tracker",
   "productName": "quarm-bid-tracker",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -41,7 +41,6 @@
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
     "vue": "^3.5.13",
-    "vue-clipboard3": "^2.0.0",
     "vuetify": "^3.7.12",
     "vuex": "^4.0.2"
   }

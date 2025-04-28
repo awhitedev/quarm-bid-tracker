@@ -63,7 +63,6 @@ import { ref, onMounted } from "vue";
 import { useStore } from "vuex";
 import { DataPipeType, PipeType, zealWindow } from "./zeal-window";
 import auctionItem from "./auction-item.vue";
-import useClipboard from "vue-clipboard3";
 import { Auction, AuctionState } from "./auction";
 
 const store = useStore();
@@ -77,7 +76,18 @@ zealWindow.zeal.onSettingsLoaded((settings) => {
   isTestHarness.value = store.state.appSettings.bidTracker.testHarness;
 });
 
-const { toClipboard } = useClipboard();
+zealWindow.zeal.onGetReportShortcut(() => {
+  getReport();
+});
+
+zealWindow.zeal.onCloseAllShortcut(() => {
+  getCloseAllMessage();
+});
+
+zealWindow.zeal.onDeclareAllWinnersShortcut(() => {
+  getDeclareAllWinnersMessage();
+});
+
 const statusMessage = ref("");
 const isStatusVisible = ref(false);
 const isTestHarness = ref(false);
@@ -103,17 +113,13 @@ const close = async () => {
   zealWindow.zeal.close();
 };
 
-const updateAuction = (updatedModel) => {
-  auctions.value[index] = updatedModel;
-};
-
-const getReport = async () => {
+const getReport = () => {
   let activeAuctionsExist = auctions.value.some(
     (auction) => auction.state === AuctionState.Active
   );
 
   if (!activeAuctionsExist) {
-    await toClipboard(`Current Bids ::: None`);
+    zealWindow.zeal.copyText("Current Bids ::: None");
   } else {
     let bidReport = "";
     for (let i = 0; i < auctions.value.length; i++) {
@@ -142,14 +148,14 @@ const getReport = async () => {
       }
     }
 
-    await toClipboard(`Current Bids ::: ${bidReport}`);
+    zealWindow.zeal.copyText(`Current Bids ::: ${bidReport}`);
   }
 
   statusMessage.value = "Current bids copied to clipboard!";
   isStatusVisible.value = true;
 };
 
-const getCloseAllMessage = async () => {
+const getCloseAllMessage = () => {
   let activeAuctionsExist = auctions.value.some(
     (auction) => auction.state === AuctionState.Active
   );
@@ -173,14 +179,14 @@ const getCloseAllMessage = async () => {
     }
   }
 
-  await toClipboard(bidsClosedMessage);
+  zealWindow.zeal.copyText(bidsClosedMessage);
 
   statusMessage.value =
     "Close all current bids message copied to clipboard. Paste this in guild chat!";
   isStatusVisible.value = true;
 };
 
-const getDeclareAllWinnersMessage = async () => {
+const getDeclareAllWinnersMessage = () => {
   let winningBidsExist = auctions.value.some(
     (auction) =>
       auction.state === AuctionState.Closed &&
@@ -221,7 +227,7 @@ const getDeclareAllWinnersMessage = async () => {
     }
   }
 
-  await toClipboard(winningBidText);
+  zealWindow.zeal.copyText(winningBidText);
 
   statusMessage.value =
     "Declare all winners message copied to clipboard. Paste this in guild chat!";
@@ -292,7 +298,7 @@ const processPipe = (pipe: any) => {
       pipe.data.type === DataPipeType.YourGuildChat)
   ) {
     const bidStartEndregex =
-      /^(?<player>.*) (say to your guild|tells the guild), '(START BIDS|BIDS CLOSED|WINNING BIDS) (?<item>.*)'/i;
+      /^(?<player>.*) (say to your guild|tells the guild), '(OPEN|START BIDS|START|BIDS CLOSED|WINNING BIDS) (?<item>.*)'/i;
     // match[0] - entire string
     // match[1] - name (You or player name)
     // match[2] - not used
@@ -300,7 +306,6 @@ const processPipe = (pipe: any) => {
     // match[4] - item(s). It can be one item or multiple delimited by a comma if LINK ALL is used in game.
 
     const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
-
     if (startOrEndMatch && startOrEndMatch.length === 5) {
       let canManageBids = false;
       const lootOfficers = Array.from(
@@ -325,7 +330,11 @@ const processPipe = (pipe: any) => {
             (item: Auction) => item.itemId === itemId
           );
 
-          if (startOrEndMatch[3].toLowerCase() === "start bids") {
+          if (
+            startOrEndMatch[3].toLowerCase() === "start bids" ||
+            startOrEndMatch[3].toLowerCase() === "start" ||
+            startOrEndMatch[3].toLowerCase() === "open"
+          ) {
             // Add item to tracker
             if (foundAuction && foundAuction.state === AuctionState.Active) {
               foundAuction.quantity++;
@@ -403,9 +412,9 @@ const processPipe = (pipe: any) => {
       // match[0] - entire string
       // match[1] - name (You or player name)
       // match[2] - not used
-      // match[3] - the word 'bid' if provided, otherwise, the item
-      // match[4] - the item if 'bid' was provided, otherwise, the bid amount
-      // match[5] - the bid amount if 'bid' provided, otherwise, not used / does not exist.
+      // match[3] - the word 'bid' if provided, otherwise null
+      // match[4] - the item with id
+      // match[5] - the bid amount
       const bidMatch = pipe.data.text.match(bidRegex);
       console.log(bidMatch);
       if (bidMatch && bidMatch.length >= 5) {

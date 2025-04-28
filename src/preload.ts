@@ -5,7 +5,10 @@ import { contextBridge, ipcRenderer } from "electron";
 
 enum ContextEvents {
   ZealPipes = "on-zeal-pipes",
-  SettingsLoaded = "settings-loaded"
+  SettingsLoaded = "settings-loaded",
+  GetReportShortcut = "get-report-shortcut",
+  CloseAllShortcut = "close-all-shortcut",
+  DeclareWinnersShortcut = "declare-winners-shortcut"
 }
 
 contextBridge.exposeInMainWorld("zeal", {
@@ -15,11 +18,27 @@ contextBridge.exposeInMainWorld("zeal", {
     });
   },
   getSettings: () => ipcRenderer.send("app/get-settings"),
+  onGetReportShortcut: (onGetReportShortcut: () => void) => {
+    ipcRenderer.on(ContextEvents.GetReportShortcut, (_event) => {
+      onGetReportShortcut();
+    });
+  },
+  onCloseAllShortcut: (onCloseAllShortcut: () => void) => {
+    ipcRenderer.on(ContextEvents.CloseAllShortcut, (_event) => {
+      onCloseAllShortcut();
+    });
+  },
+  onDeclareAllWinnersShortcut: (onDeclareAllWinnersShortcut: () => void) => {
+    ipcRenderer.on(ContextEvents.DeclareWinnersShortcut, (_event) => {
+      onDeclareAllWinnersShortcut();
+    });
+  },
   onSettingsLoaded: (onSettingsLoaded: (settings: Config) => void) => {
     ipcRenderer.on(ContextEvents.SettingsLoaded, (_event, settings) => {
       onSettingsLoaded(settings);
     });
   },
   close: () => ipcRenderer.send("app/close"),
-  minimize: () => ipcRenderer.send("app/minimize")
+  minimize: () => ipcRenderer.send("app/minimize"),
+  copyText: (text: string) => ipcRenderer.send("app/copy-text", text)
 });

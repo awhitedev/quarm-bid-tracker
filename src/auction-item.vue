@@ -35,10 +35,9 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, computed } from "vue";
 import { useStore } from "vuex";
-import useClipboard from "vue-clipboard3";
+import { zealWindow } from "./zeal-window";
 
 const store = useStore();
-const { toClipboard } = useClipboard();
 
 let intervalId = null;
 
@@ -76,7 +75,7 @@ const bidLabel = computed(() => {
 });
 
 const stopBids = async () => {
-  await toClipboard(`BIDS CLOSED ${props.auction.itemDisplay}`);
+  zealWindow.zeal.copyText(`BIDS CLOSED ${props.auction.itemDisplay}`);
   emit(
     "update:statusMessage",
     "Bids closed message copied to clipboard. Paste this message in guild chat!"
@@ -98,7 +97,7 @@ const declareWinner = async () => {
     }
   }
 
-  await toClipboard(
+  zealWindow.zeal.copyText(
     `WINNING BIDS ${props.auction.itemDisplay} ::: ${winningBidText}`
   );
 

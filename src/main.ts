@@ -1,4 +1,10 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  globalShortcut,
+  clipboard
+} from "electron";
 import path from "node:path";
 import { configStore } from "./electron-store";
 import ZealPipeReader from "./zeal/zeal-pipe-reader";
@@ -59,6 +65,18 @@ const createWindow = () => {
     config.bidTracker.height = height;
     configStore.save(config);
   });
+
+  globalShortcut.register("Alt+CommandOrControl+Z", () => {
+    mainWindow.webContents.send("get-report-shortcut");
+  });
+
+  globalShortcut.register("Alt+CommandOrControl+X", () => {
+    mainWindow.webContents.send("close-all-shortcut");
+  });
+
+  globalShortcut.register("Alt+CommandOrControl+C", () => {
+    mainWindow.webContents.send("declare-winners-shortcut");
+  });
 };
 
 // This method will be called when Electron has finished
@@ -96,4 +114,8 @@ ipcMain.on("app/minimize", () => {
 ipcMain.on("app/get-settings", (event) => {
   const config = configStore.load();
   event.reply("settings-loaded", config);
+});
+
+ipcMain.on("app/copy-text", (event, text: string) => {
+  clipboard.writeText(text);
 });
