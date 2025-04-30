@@ -10,12 +10,7 @@
     <div class="auction-text">{{ bidLabel }}</div>
     <div class="auction-timer" v-if="auction.state === 0">
       {{ auction.timeLeftSeconds }}s
-      <v-icon
-        icon="mdi-stop"
-        class="stop"
-        @click="stopBids"
-        v-if="isLootOfficer"
-      />
+      <v-icon icon="mdi-stop" class="stop" @click="stopBids" />
     </div>
     <div class="auction-timer" v-if="auction.state === 1">
       BIDS CLOSED {{ auction.finalCountdown }}
@@ -23,7 +18,7 @@
         icon="mdi-trophy"
         class="trophy"
         @click="declareWinner"
-        v-if="auction.winningBids.length > 0 && isLootOfficer"
+        v-if="auction.winningBids.length > 0"
       />
     </div>
     <div class="auction-timer" v-if="auction.state === 2">
@@ -111,17 +106,10 @@ const props = defineProps({
   auction: {
     type: Object,
     required: true
-  },
-  isLootOfficer: {
-    type: Boolean,
-    required: true
   }
 });
 
-const emit = defineEmits(["update:auctionValue", "update:statusMessage"]);
-const updateAuction = (newVal) => {
-  emit("update:auctionValue", { ...props.auction, ...newVal });
-};
+const emit = defineEmits(["update:statusMessage"]);
 
 onMounted(() => {
   intervalId = setInterval(() => {

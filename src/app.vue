@@ -7,7 +7,7 @@
     </div>
   </nav>
   <div class="main">
-    <div class="actions" v-if="isLootOfficer">
+    <div class="actions">
       <v-btn
         prependIcon="mdi-chart-bar"
         class="action-button"
@@ -34,8 +34,6 @@
       v-for="item in auctions"
       :key="index"
       :auction="item"
-      :isLootOfficer="isLootOfficer"
-      @update:auctionValue="(updatedModel) => (auctions[index] = updatedModel)"
       @update:statusMessage="showStatusMessage"
     />
   </div>
@@ -91,8 +89,6 @@ zealWindow.zeal.onDeclareAllWinnersShortcut(() => {
 const statusMessage = ref("");
 const isStatusVisible = ref(false);
 const isTestHarness = ref(false);
-
-const isLootOfficer = ref(false);
 
 const auctions = ref([]);
 const currentCharacter = ref("");
@@ -281,12 +277,6 @@ const processPipe = (pipe: any) => {
   if (pipe.type === PipeType.Player && currentCharacter.value === "") {
     // pipe.character gets the name of the character in game
     currentCharacter.value = pipe.character;
-
-    const lootOfficers = Array.from(
-      store.state.appSettings.bidTracker.lootOfficers
-    );
-
-    isLootOfficer.value = lootOfficers.indexOf(currentCharacter.value) > -1;
   } else if (
     pipe.type === PipeType.Log &&
     (pipe.data.type === DataPipeType.OtherGuildChat ||
@@ -302,87 +292,47 @@ const processPipe = (pipe: any) => {
 
     const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
     if (startOrEndMatch && startOrEndMatch.length === 5) {
-      let canManageBids = false;
-      const lootOfficers = Array.from(
-        store.state.appSettings.bidTracker.lootOfficers
-      );
-      if (startOrEndMatch[1] === "You") {
-        canManageBids = lootOfficers.indexOf(currentCharacter.value) > -1;
-      } else {
-        canManageBids = lootOfficers.indexOf(startOrEndMatch[1]) > -1;
-      }
+      const bidItemsString = startOrEndMatch[4];
+      bidItemsString.split(",").forEach((bidItem) => {
+        // remove device control characters
+        let itemString = bidItem.replace(/dc2/g, "").trim();
 
-      if (canManageBids) {
-        const bidItemsString = startOrEndMatch[4];
-        bidItemsString.split(",").forEach((bidItem) => {
-          // remove device control characters
-          let itemString = bidItem.replace(/dc2/g, "").trim();
+        const itemId = itemString.substring(0, 7);
+        const itemName = itemString.substring(7).trim();
 
-          const itemId = itemString.substring(0, 7);
-          const itemName = itemString.substring(7).trim();
+        const foundAuction = auctions.value.find(
+          (item: Auction) => item.itemId === itemId
+        );
 
-          const foundAuction = auctions.value.find(
-            (item: Auction) => item.itemId === itemId
-          );
+        if (
+          startOrEndMatch[3].toLowerCase() === "start bids" ||
+          startOrEndMatch[3].toLowerCase() === "start" ||
+          startOrEndMatch[3].toLowerCase() === "open"
+        ) {
+          // Add item to tracker
+          if (foundAuction && foundAuction.state === AuctionState.Active) {
+            foundAuction.quantity++;
+          } else {
+            let newAuction = {
+              winningBids: [],
+              quantity: 1,
+              itemId,
+              itemName,
+              itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
+              state: AuctionState.Active,
+              timeLeftSeconds:
+                store.state.appSettings.bidTracker.defaultTimerSeconds
+            };
+            auctions.value.push(newAuction);
+          }
+        } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
+          if (foundAuction) {
+            foundAuction.state = AuctionState.Closed;
 
-          if (
-            startOrEndMatch[3].toLowerCase() === "start bids" ||
-            startOrEndMatch[3].toLowerCase() === "start" ||
-            startOrEndMatch[3].toLowerCase() === "open"
-          ) {
-            // Add item to tracker
-            if (foundAuction && foundAuction.state === AuctionState.Active) {
-              foundAuction.quantity++;
-            } else {
-              let newAuction = {
-                winningBids: [],
-                quantity: 1,
-                itemId,
-                itemName,
-                itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
-                state: AuctionState.Active,
-                timeLeftSeconds:
-                  store.state.appSettings.bidTracker.defaultTimerSeconds
-              };
-              auctions.value.push(newAuction);
-            }
-          } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
-            if (foundAuction) {
-              foundAuction.state = AuctionState.Closed;
-
-              if (
-                !foundAuction.winningBids ||
-                foundAuction.winningBids.length === 0
-              ) {
-                const currenTimers = Object.keys(removalTimers);
-                if (!currenTimers.some((keyId) => keyId === itemId)) {
-                  foundAuction.finalCountdown = 10;
-                  let closeTimerId = setInterval(() => {
-                    foundAuction.finalCountdown--;
-
-                    if (foundAuction.finalCountdown <= 0) {
-                      const foundAuctionIndex = auctions.value.findIndex(
-                        (item: Auction) => item.itemId === itemId
-                      );
-
-                      auctions.value.splice(foundAuctionIndex, 1);
-                      clearInterval(closeTimerId);
-                      delete removalTimers[itemId];
-                    }
-                  }, 1000);
-
-                  removalTimers[itemId] = closeTimerId;
-                }
-              }
-            }
-          } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
-            if (foundAuction) {
-              foundAuction.state = AuctionState.WinnerAnnounced;
-              if (startOrEndMatch[1] === "You") {
-                // only want the person who declared the winning bid to post the winners message to Discord
-                zealWindow.zeal.sendToDiscord(startOrEndMatch[0]);
-              }
-
+            if (
+              !foundAuction.winningBids ||
+              foundAuction.winningBids.length === 0
+            ) {
               const currenTimers = Object.keys(removalTimers);
               if (!currenTimers.some((keyId) => keyId === itemId)) {
                 foundAuction.finalCountdown = 10;
@@ -399,12 +349,40 @@ const processPipe = (pipe: any) => {
                     delete removalTimers[itemId];
                   }
                 }, 1000);
+
                 removalTimers[itemId] = closeTimerId;
               }
             }
           }
-        });
-      }
+        } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
+          if (foundAuction) {
+            foundAuction.state = AuctionState.WinnerAnnounced;
+            if (startOrEndMatch[1] === "You") {
+              // only want the person who declared the winning bid to post the winners message to Discord
+              zealWindow.zeal.sendToDiscord(startOrEndMatch[0]);
+            }
+
+            const currenTimers = Object.keys(removalTimers);
+            if (!currenTimers.some((keyId) => keyId === itemId)) {
+              foundAuction.finalCountdown = 10;
+              let closeTimerId = setInterval(() => {
+                foundAuction.finalCountdown--;
+
+                if (foundAuction.finalCountdown <= 0) {
+                  const foundAuctionIndex = auctions.value.findIndex(
+                    (item: Auction) => item.itemId === itemId
+                  );
+
+                  auctions.value.splice(foundAuctionIndex, 1);
+                  clearInterval(closeTimerId);
+                  delete removalTimers[itemId];
+                }
+              }, 1000);
+              removalTimers[itemId] = closeTimerId;
+            }
+          }
+        }
+      });
     } else {
       const bidRegex =
         /^(?<player>.*) (say to your guild|tells the guild), '(BID)?(?<item>.*) (?<bid>.*)'/i;
