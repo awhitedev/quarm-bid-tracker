@@ -12,6 +12,7 @@ type ZealWindow = Window & {
     onZealPipes: (cb: (pipes: ZealPipe[]) => void) => void;
     close: () => void;
     minimize: () => void;
+    sendToDiscord: (text: string) => void;
     copyText: (text: string) => void;
     onGetReportShortcut: (cb: () => void) => void;
     onCloseAllShortcut: (cb: () => void) => void;

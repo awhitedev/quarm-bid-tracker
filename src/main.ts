@@ -16,10 +16,9 @@ if (started) {
 }
 
 let mainWindow: BrowserWindow;
+const config = configStore.load();
 
 const createWindow = () => {
-  const config = configStore.load();
-
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: config.bidTracker.width,
@@ -112,10 +111,23 @@ ipcMain.on("app/minimize", () => {
 });
 
 ipcMain.on("app/get-settings", (event) => {
-  const config = configStore.load();
   event.reply("settings-loaded", config);
 });
 
 ipcMain.on("app/copy-text", (event, text: string) => {
   clipboard.writeText(text);
+});
+
+ipcMain.on("app/send-to-discord", (event, text: string) => {
+  fetch(config.bidTracker.discordWebhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      content: text
+    })
+  })
+    .then((data) => console.log("Message sent:", data))
+    .catch((error) => console.error("Error sending message:", error));
 });

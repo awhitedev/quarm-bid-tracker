@@ -40,5 +40,6 @@ contextBridge.exposeInMainWorld("zeal", {
   },
   close: () => ipcRenderer.send("app/close"),
   minimize: () => ipcRenderer.send("app/minimize"),
-  copyText: (text: string) => ipcRenderer.send("app/copy-text", text)
+  copyText: (text: string) => ipcRenderer.send("app/copy-text", text),
+  sendToDiscord: (text: string) => ipcRenderer.send("app/send-to-discord", text)
 });

@@ -274,11 +274,6 @@ const submitTest = async () => {
 };
 
 const processPipe = (pipe: any) => {
-  // Process.. use regex to get string.. exclude first 7 characters (which is the ID) for displaying in app or on Open DKP.
-  // Use the first 7 characters with the item name when detecting bids as some items in the game are named exactly the same.
-
-  // Put last 7 characters back in text with dc2 character string at the beginning and end when copy / pasting from app back to the game for guild communication
-
   if (!pipe) {
     return;
   }
@@ -383,6 +378,10 @@ const processPipe = (pipe: any) => {
           } else if (startOrEndMatch[3].toLowerCase() === "winning bids") {
             if (foundAuction) {
               foundAuction.state = AuctionState.WinnerAnnounced;
+              if (startOrEndMatch[1] === "You") {
+                // only want the person who declared the winning bid to post the winners message to Discord
+                zealWindow.zeal.sendToDiscord(startOrEndMatch[0]);
+              }
 
               const currenTimers = Object.keys(removalTimers);
               if (!currenTimers.some((keyId) => keyId === itemId)) {

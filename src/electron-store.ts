@@ -10,6 +10,7 @@ export interface Config {
     height: number;
     x?: number;
     y?: number;
+    discordWebhookUrl: string;
     lootOfficers: string[];
     defaultTimerSeconds: number;
     testHarness: boolean;
@@ -36,6 +37,8 @@ const defaultConfig: Config = {
       "Tarhn",
       "Wonsela"
     ],
+    discordWebhookUrl:
+      "https://discord.com/api/webhooks/1365298993239822366/dF82MD6Y0MNfE80wAZ1kTuuqMpj4TcbvOKqPnXLlSbmX50SFvhIsnaiR7Tha9UoXLTAb",
     defaultTimerSeconds: 80,
     testHarness: false
   }
