@@ -18,4 +18,5 @@ export enum AuctionState {
 export interface WinningBid {
   bid: number;
   player: string;
+  date: Date;
 }

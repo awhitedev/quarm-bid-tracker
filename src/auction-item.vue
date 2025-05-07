@@ -121,6 +121,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  console.log("unmount");
   clearInterval(intervalId);
 });
 </script>

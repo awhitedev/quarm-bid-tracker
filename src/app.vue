@@ -293,6 +293,14 @@ const processPipe = (pipe: any) => {
     const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
     if (startOrEndMatch && startOrEndMatch.length === 5) {
       const bidItemsString = startOrEndMatch[4];
+      if (
+        !bidItemsString ||
+        bidItemsString.trim().length === 0 ||
+        bidItemsString.trim() === "bids"
+      ) {
+        return;
+      }
+
       bidItemsString.split(",").forEach((bidItem) => {
         // remove device control characters
         let itemString = bidItem.replace(/dc2/g, "").trim();
@@ -359,7 +367,18 @@ const processPipe = (pipe: any) => {
             foundAuction.state = AuctionState.WinnerAnnounced;
             if (startOrEndMatch[1] === "You") {
               // only want the person who declared the winning bid to post the winners message to Discord
-              zealWindow.zeal.sendToDiscord(startOrEndMatch[0]);
+              let bidString = "";
+              for (let i = 0; i < foundAuction.winningBids.length; i++) {
+                const bid = foundAuction.winningBids[i];
+                bidString += `${bid.player} ${bid.bid}`;
+                if (i + 1 < foundAuction.winningBids.length) {
+                  bidString += ", ";
+                }
+              }
+
+              zealWindow.zeal.sendToDiscord(
+                `${foundAuction.itemName} ::: ${bidString}`
+              );
             }
 
             const currenTimers = Object.keys(removalTimers);
@@ -393,7 +412,6 @@ const processPipe = (pipe: any) => {
       // match[4] - the item with id
       // match[5] - the bid amount
       const bidMatch = pipe.data.text.match(bidRegex);
-      console.log(bidMatch);
       if (bidMatch && bidMatch.length >= 5) {
         let itemString = bidMatch[4];
         let bidAmountString = bidMatch[5];
@@ -432,6 +450,7 @@ const processPipe = (pipe: any) => {
                 foundAuction.winningBids[existingPlayerBidIdx];
               if (bidAmount > existingAuction.bid) {
                 existingAuction.bid = bidAmount;
+                existingAuction.date = new Date();
               }
               return true;
             }
@@ -441,10 +460,14 @@ const processPipe = (pipe: any) => {
             if (foundAuction.quantity > foundAuction.winningBids.length) {
               foundAuction.winningBids.push({
                 player: bidderName,
-                bid: bidAmount
+                bid: bidAmount,
+                date: new Date()
               });
               foundAuction.winningBids.sort((a, b) => {
-                return a.bid - b.bid;
+                if (a.bid !== b.bid) {
+                  return a.bid - b.bid;
+                }
+                return b.date - a.date;
               });
 
               if (
@@ -456,12 +479,17 @@ const processPipe = (pipe: any) => {
             } else {
               // find lowest bid and see if current bid is higher than that. If it is, replace it with current bid.
               const sortedWinners = foundAuction.winningBids.sort((a, b) => {
-                return a.bid - b.bid;
+                if (a.bid !== b.bid) {
+                  return a.bid - b.bid;
+                }
+                return b.date - a.date;
               });
+
               sortedWinners.every((winBid) => {
                 if (winBid && bidAmount > winBid.bid) {
                   winBid.bid = bidAmount;
                   winBid.player = bidderName;
+                  winBid.date = new Date();
 
                   if (
                     foundAuction.timeLeftSeconds < 10 &&
@@ -474,7 +502,10 @@ const processPipe = (pipe: any) => {
                 }
               });
               foundAuction.winningBids.sort((a, b) => {
-                return a.bid - b.bid;
+                if (a.bid !== b.bid) {
+                  return a.bid - b.bid;
+                }
+                return b.date - a.date;
               });
             }
           }
