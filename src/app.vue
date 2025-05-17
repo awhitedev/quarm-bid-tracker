@@ -347,12 +347,7 @@ const processPipe = (pipe: any) => {
         return;
       }
 
-      let bidItemsArr = bidItemsString.split(",");
-      if (bidItemsArr.length === 0) {
-        bidItemsArr = bidItemsString.split("|");
-      }
-
-      bidItemsArr.forEach((bidItem) => {
+      bidItemsString.split(/[,|]/).forEach((bidItem) => {
         // remove device control characters
         let itemString = bidItem.replace(/dc2/g, "").trim();
 
