@@ -13,12 +13,15 @@ type ZealWindow = Window & {
     close: () => void;
     minimize: () => void;
     sendToDiscord: (text: string) => void;
+    saveSettings: (discordWebhookUrl: string) => void;
     copyText: (text: string) => void;
     onGetReportShortcut: (cb: () => void) => void;
     onCloseAllShortcut: (cb: () => void) => void;
     onDeclareAllWinnersShortcut: (cb: () => void) => void;
     getSettings: () => void;
+    getVersion: () => void;
     onSettingsLoaded: (cb: (settings: Config) => void) => void;
+    onVersionLoaded: (cb: (version: string) => void) => void;
     onLockChanged: (cb: (isLocked: boolean) => void) => void;
     setLock: (isLocked: boolean) => void;
   };

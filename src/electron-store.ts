@@ -20,9 +20,8 @@ const defaultConfig: Config = {
   bidTracker: {
     width: 480,
     height: 300,
-    discordWebhookUrl:
-      "https://discord.com/api/webhooks/1365298993239822366/dF82MD6Y0MNfE80wAZ1kTuuqMpj4TcbvOKqPnXLlSbmX50SFvhIsnaiR7Tha9UoXLTAb",
-    defaultTimerSeconds: 80,
+    discordWebhookUrl: "",
+    defaultTimerSeconds: 90,
     testHarness: false
   }
 };

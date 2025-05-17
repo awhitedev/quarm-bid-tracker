@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from "electron";
 enum ContextEvents {
   ZealPipes = "on-zeal-pipes",
   SettingsLoaded = "settings-loaded",
+  VersionLoaded = "version-loaded",
   GetReportShortcut = "get-report-shortcut",
   CloseAllShortcut = "close-all-shortcut",
   DeclareWinnersShortcut = "declare-winners-shortcut"
@@ -18,6 +19,7 @@ contextBridge.exposeInMainWorld("zeal", {
     });
   },
   getSettings: () => ipcRenderer.send("app/get-settings"),
+  getVersion: () => ipcRenderer.send("app/get-version"),
   onGetReportShortcut: (onGetReportShortcut: () => void) => {
     ipcRenderer.on(ContextEvents.GetReportShortcut, (_event) => {
       onGetReportShortcut();
@@ -38,8 +40,16 @@ contextBridge.exposeInMainWorld("zeal", {
       onSettingsLoaded(settings);
     });
   },
+  onVersionLoaded: (onVersionLoaded: (version: string) => void) => {
+    ipcRenderer.on(ContextEvents.VersionLoaded, (_event, version: string) => {
+      onVersionLoaded(version);
+    });
+  },
   close: () => ipcRenderer.send("app/close"),
   minimize: () => ipcRenderer.send("app/minimize"),
   copyText: (text: string) => ipcRenderer.send("app/copy-text", text),
-  sendToDiscord: (text: string) => ipcRenderer.send("app/send-to-discord", text)
+  sendToDiscord: (text: string) =>
+    ipcRenderer.send("app/send-to-discord", text),
+  saveSettings: (discordWebhookUrl: string) =>
+    ipcRenderer.send("app/save-settings", discordWebhookUrl)
 });

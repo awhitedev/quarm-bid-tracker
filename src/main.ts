@@ -114,20 +114,35 @@ ipcMain.on("app/get-settings", (event) => {
   event.reply("settings-loaded", config);
 });
 
+ipcMain.on("app/get-version", (event) => {
+  let version = app.getVersion();
+  event.reply("version-loaded", version);
+});
+
 ipcMain.on("app/copy-text", (event, text: string) => {
   clipboard.writeText(text);
 });
 
 ipcMain.on("app/send-to-discord", (event, text: string) => {
-  fetch(config.bidTracker.discordWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      content: text
+  if (
+    config.bidTracker.discordWebhookUrl &&
+    config.bidTracker.discordWebhookUrl.length > 0
+  ) {
+    fetch(config.bidTracker.discordWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        content: text
+      })
     })
-  })
-    .then((data) => console.log("Message sent:", data))
-    .catch((error) => console.error("Error sending message:", error));
+      .then((data) => console.log("Message sent:", data))
+      .catch((error) => console.error("Error sending message:", error));
+  }
+});
+
+ipcMain.on("app/save-settings", (event, discordWebhookUrl: string) => {
+  config.bidTracker.discordWebhookUrl = discordWebhookUrl;
+  configStore.save(config);
 });

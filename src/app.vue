@@ -29,6 +29,18 @@
         @click="getDeclareAllWinnersMessage"
         >Declare All Winners</v-btn
       >
+      <v-btn
+        prependIcon="mdi-cog"
+        class="action-button icon-button"
+        size="icon"
+        @click="toggleSettings"
+      ></v-btn>
+      <v-btn
+        prependIcon="mdi-reload-alert"
+        class="action-button icon-button"
+        size="icon"
+        @click="refreshPage"
+      ></v-btn>
     </div>
     <auctionItem
       v-for="item in auctions"
@@ -36,6 +48,14 @@
       :auction="item"
       @update:statusMessage="showStatusMessage"
     />
+  </div>
+  <div class="settings nodrag" v-if="isDisplaySettings">
+    <v-text-field
+      label="Discord Webhook URL"
+      v-model="discordWebhookUrl"
+    ></v-text-field>
+    <v-btn size="small" @click="saveSettings">Save</v-btn>
+    <span class="app-version"> v{{ appVersion }} </span>
   </div>
   <div class="test-harness nodrag" v-if="isTestHarness">
     <v-text-field label="player" v-model="testPlayer"></v-text-field>
@@ -67,11 +87,18 @@ const store = useStore();
 
 onMounted(() => {
   zealWindow.zeal.getSettings();
+  zealWindow.zeal.getVersion();
 });
 
 zealWindow.zeal.onSettingsLoaded((settings) => {
   store.commit("updateSettings", settings);
   isTestHarness.value = store.state.appSettings.bidTracker.testHarness;
+  discordWebhookUrl.value =
+    store.state.appSettings.bidTracker.discordWebhookUrl;
+});
+
+zealWindow.zeal.onVersionLoaded((version) => {
+  appVersion.value = version;
 });
 
 zealWindow.zeal.onGetReportShortcut(() => {
@@ -89,6 +116,11 @@ zealWindow.zeal.onDeclareAllWinnersShortcut(() => {
 const statusMessage = ref("");
 const isStatusVisible = ref(false);
 const isTestHarness = ref(false);
+
+const appVersion = ref("");
+const discordWebhookUrl = ref("");
+
+const isDisplaySettings = ref(false);
 
 const auctions = ref([]);
 const currentCharacter = ref("");
@@ -182,6 +214,14 @@ const getCloseAllMessage = () => {
   isStatusVisible.value = true;
 };
 
+const toggleSettings = () => {
+  isDisplaySettings.value = !isDisplaySettings.value;
+};
+
+const refreshPage = () => {
+  location.reload();
+};
+
 const getDeclareAllWinnersMessage = () => {
   let winningBidsExist = auctions.value.some(
     (auction) =>
@@ -249,6 +289,12 @@ function findAllIndexes<T>(
   return indexes;
 }
 
+const saveSettings = async () => {
+  zealWindow.zeal.saveSettings(discordWebhookUrl.value);
+  statusMessage.value = "Settings saved!";
+  isStatusVisible.value = true;
+};
+
 const submitTest = async () => {
   const pipePlayer = {
     character: testPlayer.value,
@@ -283,7 +329,7 @@ const processPipe = (pipe: any) => {
       pipe.data.type === DataPipeType.YourGuildChat)
   ) {
     const bidStartEndregex =
-      /^(?<player>.*) (say to your guild|tells the guild), '(OPEN|START BIDS|START|BIDS CLOSED|WINNING BIDS) (?<item>.*)'/i;
+      /^(?<player>.*) (say to your guild|tells the guild), '(START BIDS|BIDS CLOSED|WINNING BIDS) (?<item>.*)'/i;
     // match[0] - entire string
     // match[1] - name (You or player name)
     // match[2] - not used
@@ -301,7 +347,12 @@ const processPipe = (pipe: any) => {
         return;
       }
 
-      bidItemsString.split(",").forEach((bidItem) => {
+      let bidItemsArr = bidItemsString.split(",");
+      if (bidItemsArr.length === 0) {
+        bidItemsArr = bidItemsString.split("|");
+      }
+
+      bidItemsArr.forEach((bidItem) => {
         // remove device control characters
         let itemString = bidItem.replace(/dc2/g, "").trim();
 
@@ -312,11 +363,7 @@ const processPipe = (pipe: any) => {
           (item: Auction) => item.itemId === itemId
         );
 
-        if (
-          startOrEndMatch[3].toLowerCase() === "start bids" ||
-          startOrEndMatch[3].toLowerCase() === "start" ||
-          startOrEndMatch[3].toLowerCase() === "open"
-        ) {
+        if (startOrEndMatch[3].toLowerCase() === "start bids") {
           // Add item to tracker
           if (foundAuction && foundAuction.state === AuctionState.Active) {
             foundAuction.quantity++;
@@ -336,6 +383,7 @@ const processPipe = (pipe: any) => {
         } else if (startOrEndMatch[3].toLowerCase() === "bids closed") {
           if (foundAuction) {
             foundAuction.state = AuctionState.Closed;
+            foundAuction.timeLeftSeconds = 0;
 
             if (
               !foundAuction.winningBids ||
@@ -404,24 +452,24 @@ const processPipe = (pipe: any) => {
       });
     } else {
       const bidRegex =
-        /^(?<player>.*) (say to your guild|tells the guild), '(BID)?(?<item>.*) (?<bid>.*)'/i;
+        /^(?<player>.*) (say to your guild|tells the guild), '(BID\s?)?(?<itemid>[0-9]{7})(?<item>.*?)(?<bid>[\d].*?)(?:[A-Za-z].*?)?'/i;
       // match[0] - entire string
       // match[1] - name (You or player name)
       // match[2] - not used
       // match[3] - the word 'bid' if provided, otherwise null
-      // match[4] - the item with id
-      // match[5] - the bid amount
+      // match[4] - item id
+      // match[5] - the item name
+      // match[6] - the bid amount
       const bidMatch = pipe.data.text.match(bidRegex);
       if (bidMatch && bidMatch.length >= 5) {
-        let itemString = bidMatch[4];
-        let bidAmountString = bidMatch[5];
+        const itemId = bidMatch[4].trim();
+        let bidAmountString = bidMatch[6].trim();
 
         const bidAmount = parseInt(bidAmountString);
         if (bidAmount > 5000) {
           return;
         }
 
-        const itemId = itemString.trim().substring(0, 7);
         const foundAuctionIdx = findAllIndexes(
           auctions.value,
           (item: Auction) => item.itemId === itemId
@@ -471,10 +519,10 @@ const processPipe = (pipe: any) => {
               });
 
               if (
-                foundAuction.timeLeftSeconds < 10 &&
+                foundAuction.timeLeftSeconds < 20 &&
                 foundAuction.timeLeftSeconds > 0
               ) {
-                foundAuction.timeLeftSeconds = 20;
+                foundAuction.timeLeftSeconds = 30;
               }
             } else {
               // find lowest bid and see if current bid is higher than that. If it is, replace it with current bid.
@@ -492,10 +540,10 @@ const processPipe = (pipe: any) => {
                   winBid.date = new Date();
 
                   if (
-                    foundAuction.timeLeftSeconds < 10 &&
+                    foundAuction.timeLeftSeconds < 20 &&
                     foundAuction.timeLeftSeconds > 0
                   ) {
-                    foundAuction.timeLeftSeconds = 20;
+                    foundAuction.timeLeftSeconds = 30;
                   }
 
                   return false;
@@ -565,6 +613,10 @@ div.actions {
 }
 button.action-button {
   margin-right: 10px;
+  min-width: 28px;
+}
+button.icon-button {
+  min-height: 28px;
 }
 button.action-button,
 .snack-action {
@@ -576,6 +628,15 @@ div.statusMessage {
   font-weight: bold;
   font-size: 1.1rem;
   padding: 15px;
+}
+div.settings {
+  margin: 10px;
+  padding: 5px;
+  background: #eee;
+  border: 3px solid #777;
+}
+span.app-version {
+  padding-left: 10px;
 }
 /* test harness */
 div.test-harness {

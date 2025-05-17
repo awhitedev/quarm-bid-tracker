@@ -28,13 +28,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useStore } from "vuex";
 import { zealWindow } from "./zeal-window";
+import { AuctionState } from "./auction";
 
 const store = useStore();
-
-let intervalId = null;
+let intervalId = ref(null);
 
 const percentRemaining = computed(() => {
   if (!props.auction) {
@@ -75,7 +75,6 @@ const stopBids = async () => {
     "update:statusMessage",
     "Bids closed message copied to clipboard. Paste this message in guild chat!"
   );
-  // props.auction.state = 1;
 };
 
 const declareWinner = async () => {
@@ -112,17 +111,17 @@ const props = defineProps({
 const emit = defineEmits(["update:statusMessage"]);
 
 onMounted(() => {
-  intervalId = setInterval(() => {
+  intervalId.value = setInterval(() => {
+    if (props.auction.state !== AuctionState.Active) {
+      clearInterval(intervalId.value);
+      return;
+    }
+
     props.auction.timeLeftSeconds = props.auction.timeLeftSeconds - 1;
     if (props.auction.timeLeftSeconds <= 0) {
-      clearInterval(intervalId);
+      clearInterval(intervalId.value);
     }
   }, 1000);
-});
-
-onBeforeUnmount(() => {
-  console.log("unmount");
-  clearInterval(intervalId);
 });
 </script>
 

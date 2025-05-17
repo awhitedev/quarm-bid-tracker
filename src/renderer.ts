@@ -53,7 +53,3 @@ const vuetify = createVuetify({
 });
 
 createApp(App).use(store).use(vuetify).mount("#app");
-
-console.log(
-  '👋 This message is being logged by "renderer.ts", included via Vite'
-);
