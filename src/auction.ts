@@ -6,6 +6,7 @@ export interface Auction {
   timeLeftSeconds: number;
   quantity: number;
   state: AuctionState;
+  dateCreated: number;
   finalCountdown?: number;
 }
 

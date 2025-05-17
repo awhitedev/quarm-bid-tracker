@@ -44,7 +44,7 @@
     </div>
     <auctionItem
       v-for="item in auctions"
-      :key="index"
+      :key="item.dateCreated"
       :auction="item"
       @update:statusMessage="showStatusMessage"
     />
@@ -370,6 +370,7 @@ const processPipe = (pipe: any) => {
               itemName,
               itemDisplay: `${dc2}${itemId} ${itemName}${dc2}`,
               state: AuctionState.Active,
+              dateCreated: Date.now(),
               timeLeftSeconds:
                 store.state.appSettings.bidTracker.defaultTimerSeconds
             };
