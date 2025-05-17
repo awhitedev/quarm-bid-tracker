@@ -18,7 +18,7 @@ export interface Config {
 
 const defaultConfig: Config = {
   bidTracker: {
-    width: 480,
+    width: 540,
     height: 300,
     discordWebhookUrl: "",
     defaultTimerSeconds: 90,
