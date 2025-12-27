@@ -1,5 +1,6 @@
 export interface Auction {
-  winningBids?: WinningBid[];
+  bids?: Bid[];
+  winningBids?: Bid[];
   itemId: string;
   itemName: string;
   itemDisplay: string;
@@ -16,7 +17,7 @@ export enum AuctionState {
   WinnerAnnounced
 }
 
-export interface WinningBid {
+export interface Bid {
   bid: number;
   player: string;
   date: Date;

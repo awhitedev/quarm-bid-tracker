@@ -315,6 +315,33 @@ const submitTest = async () => {
   processPipe(pipe);
 };
 
+const calculateWinningBids = (auction: Auction) => {
+  // Group bids by player to ensure a player can only win one copy of an item
+  const playerBids = auction.bids.reduce((acc, bid) => {
+    if (!acc[bid.player]) {
+      acc[bid.player] = bid;
+    } else if (bid.bid > acc[bid.player].bid) {
+      acc[bid.player] = bid; // Update to the highest bid for the player
+    }
+    return acc;
+  }, {});
+
+  // Convert grouped bids back to an array and sort
+  auction.winningBids = Object.values(playerBids)
+    .sort((a, b) => {
+      if (a.bid !== b.bid) {
+        return b.bid - a.bid; // Sort by bid amount in descending order
+      }
+      return a.date - b.date; // If bids are equal, sort by date in ascending order
+    })
+    .slice(0, auction.quantity); // Take the top bids based on the quantity
+
+  // Reset the timer if close to ending
+  if (auction.timeLeftSeconds < 20 && auction.timeLeftSeconds > 0) {
+    auction.timeLeftSeconds = 30;
+  }
+};
+
 const processPipe = (pipe: any) => {
   if (!pipe) {
     return;
@@ -364,6 +391,7 @@ const processPipe = (pipe: any) => {
             foundAuction.quantity++;
           } else {
             let newAuction = {
+              bids: [],
               winningBids: [],
               quantity: 1,
               itemId,
@@ -484,76 +512,49 @@ const processPipe = (pipe: any) => {
               bidderName = currentCharacter.value;
             }
 
-            // prevent double dipping.. a person can only win 1 item even if there are multiple available
-            const existingPlayerBidIdx = foundAuction.winningBids.findIndex(
-              (bid) => bid.player === bidderName
-            );
-            if (existingPlayerBidIdx > -1) {
-              // set the bid amount higher if they decide they want to.
-              const existingAuction =
-                foundAuction.winningBids[existingPlayerBidIdx];
-              if (bidAmount > existingAuction.bid) {
-                existingAuction.bid = bidAmount;
-                existingAuction.date = new Date();
-              }
-              return true;
-            }
+            foundAuction.bids.push({
+              player: bidderName,
+              bid: bidAmount,
+              date: new Date()
+            });
 
-            // sort winning bids.. only overwrite lowest winning bid possible.
-            // add to winning bids if quantity being bid out hasn't been reached.
-            if (foundAuction.quantity > foundAuction.winningBids.length) {
-              foundAuction.winningBids.push({
-                player: bidderName,
-                bid: bidAmount,
-                date: new Date()
-              });
-              foundAuction.winningBids.sort((a, b) => {
-                if (a.bid !== b.bid) {
-                  return a.bid - b.bid;
-                }
-                return b.date - a.date;
-              });
-
-              if (
-                foundAuction.timeLeftSeconds < 20 &&
-                foundAuction.timeLeftSeconds > 0
-              ) {
-                foundAuction.timeLeftSeconds = 30;
-              }
-            } else {
-              // find lowest bid and see if current bid is higher than that. If it is, replace it with current bid.
-              const sortedWinners = foundAuction.winningBids.sort((a, b) => {
-                if (a.bid !== b.bid) {
-                  return a.bid - b.bid;
-                }
-                return b.date - a.date;
-              });
-
-              sortedWinners.every((winBid) => {
-                if (winBid && bidAmount > winBid.bid) {
-                  winBid.bid = bidAmount;
-                  winBid.player = bidderName;
-                  winBid.date = new Date();
-
-                  if (
-                    foundAuction.timeLeftSeconds < 20 &&
-                    foundAuction.timeLeftSeconds > 0
-                  ) {
-                    foundAuction.timeLeftSeconds = 30;
-                  }
-
-                  return false;
-                }
-              });
-              foundAuction.winningBids.sort((a, b) => {
-                if (a.bid !== b.bid) {
-                  return a.bid - b.bid;
-                }
-                return b.date - a.date;
-              });
-            }
+            calculateWinningBids(foundAuction);
           }
         });
+      } else {
+        const cancelBidRegex =
+          /^(?<player>.*) (say to your guild|tells the guild), 'CANCEL BID (?<itemid>[0-9]{7}) (?<item>[^:']*'[^:']*|[^:']*)(?:: (?<targetPlayer>.*))?'/i;
+        const cancelBidMatch = pipe.data.text.match(cancelBidRegex);
+        if (cancelBidMatch && cancelBidMatch.length >= 4) {
+          const itemId = cancelBidMatch[3].trim();
+          const targetPlayer = cancelBidMatch.groups?.targetPlayer?.trim();
+
+          const foundAuctionIdx = findAllIndexes(
+            auctions.value,
+            (item: Auction) => item.itemId === itemId
+          );
+
+          foundAuctionIdx.forEach((idx) => {
+            const foundAuction = auctions.value[idx];
+            if (foundAuction && foundAuction.state === AuctionState.Active) {
+              let bidderName = cancelBidMatch[1];
+              if (bidderName === "You") {
+                bidderName = currentCharacter.value;
+              }
+
+              // If a target player is specified, use that name; otherwise, use the bidder's name
+              const playerToRemove = targetPlayer || bidderName;
+
+              // remove all bids by this player for this auction
+              foundAuction.bids = foundAuction.bids.filter(
+                (bid) => bid.player !== playerToRemove
+              );
+
+              // recalculate winning bids
+              calculateWinningBids(foundAuction);
+            }
+          });
+        }
       }
     }
   }
