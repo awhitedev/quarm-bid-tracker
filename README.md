@@ -74,6 +74,12 @@ Please note:
 
 Auction reports are a nice way for people to be reminded of all active auctions, how much time is left, and who the current winners are. You can click the "Report" button to generate a report and copy it to your clipboard so you can paste it into guild chat.
 
+### Canceling Bids
+
+Sometimes a player may accidentally place a bid on the wrong item or mistype the amount they intended to bid. When this happens the player may cancel all of their existing bids by typing the following message in guild chat: `cancel bid <item_link>`.
+
+Bid administrators may cancel bids for other players by appending a colon and the player's name at the end of cancellation message (in guild chat). Example: `cancel bid <item_link>: <player_name>`
+
 ### Discord Integration
 
 This application supports an integration with Discord web hooks. You can configure a webhook URL by clicking the gear icon in the app, providing the URL from Discord, and clicking Save. When a winning bid is delcared (see above) the winning bid will be posted to the channel associated with the Discord web hook URL.
