@@ -362,7 +362,6 @@ const processPipe = (pipe: any) => {
     // match[2] - not used
     // match[3] - action
     // match[4] - item(s). It can be one item or multiple delimited by a comma if LINK ALL is used in game.
-
     const startOrEndMatch = pipe.data.text.match(bidStartEndregex);
     if (startOrEndMatch && startOrEndMatch.length === 5) {
       const bidItemsString = startOrEndMatch[4];
@@ -523,7 +522,7 @@ const processPipe = (pipe: any) => {
         });
       } else {
         const cancelBidRegex =
-          /^(?<player>.*) (say to your guild|tells the guild), 'CANCEL BID (?<itemid>[0-9]{7}) (?<item>[^:']*'[^:']*|[^:']*)(?:: (?<targetPlayer>.*))?'/i;
+          /^(?<player>.*) (say to your guild|tells the guild), 'CANCEL BID (?<itemid>[0-9]{7})(?<item>[^:']*'[^:']*|[^:']*)(?:: (?<targetPlayer>.*))?'/i;
         const cancelBidMatch = pipe.data.text.match(cancelBidRegex);
         if (cancelBidMatch && cancelBidMatch.length >= 4) {
           const itemId = cancelBidMatch[3].trim();
